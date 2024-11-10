@@ -27,6 +27,41 @@ static inline int nextPow2(int n) {
     return n;
 }
 
+// Up sweep Kernel
+__global__ void up_sweep(int* array, int n, int offset) {
+    int idx = threadIdx.x + blockDim.x * blockIdx.x;
+    // pair of elements
+    int ai = offset * (2 * idx + 1) - 1;
+    int bi = offset * (2 * idx + 2) - 1;
+    // avoid bank conflicts
+    ai += CONFLICT_FREE_OFFSET(ai);
+    bi += CONFLICT_FREE_OFFSET(bi);
+    // make sure offset didn't move us off the array
+    if (bi < n) {
+        array[bi] += array[ai];
+
+
+}
+
+// Down sweep Kernel
+__global__ void down_sweep(int* array, int n, int offset) {
+    int idx = threadIdx.x + blockDim.x * blockIdx.x;
+    // pair of elements
+    int ai = offset * (2 * idx + 1) - 1;
+    int bi = offset * (2 * idx + 2) - 1;
+    // avoid bank conflicts
+    ai += CONFLICT_FREE_OFFSET(ai);
+    bi += CONFLICT_FREE_OFFSET(bi);
+    // make sure offset didn't move us off the array
+    if (bi < n) {
+        float t = array[ai];
+        array[ai] = array[bi];
+        array[bi] += t;
+    }
+}
+
+
+
 // exclusive_scan --
 //
 // Implementation of an exclusive scan on global memory array `input`,
@@ -53,6 +88,26 @@ void exclusive_scan(int* input, int N, int* result)
     // on the CPU.  Your implementation will need to make multiple calls
     // to CUDA kernel functions (that you must write) to implement the
     // scan.
+
+    // upsweep
+    int offset = 1;
+    // loop over every level of tree
+    while (offset < n) {
+        int numThreads = (n / (2 * offset));
+        int numBlocks = (numThreads + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK;
+        // Launch up-sweep kernel with the current offset
+        up_sweep<<<numBlocks, THREADS_PER_BLOCK>>>(d_array, n, offset);
+        offset *= 2;
+    }
+        
+
+    // set last to 0
+    result[N-1] = 0
+
+    // down sweep
+
+    
+
 
 
 }
